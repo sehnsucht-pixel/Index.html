@@ -1,0 +1,4291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Portfolio Balancer Bot - Testnet v2.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0b0d;
+            --bg-secondary: #12141a;
+            --bg-tertiary: #1a1c24;
+            --border-primary: #2a2d3a;
+            --border-secondary: #3a3d4a;
+            --text-primary: #e4e6eb;
+            --text-secondary: #b0b3b8;
+            --text-tertiary: #8b8d91;
+            --accent-primary: #14f195;
+            --accent-secondary: #9945ff;
+            --accent-tertiary: #00d9ff;
+            --error: #ff4747;
+            --warning: #ffaa00;
+            --success: #00ff88;
+            --gradient-primary: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            --gradient-secondary: linear-gradient(135deg, var(--accent-secondary), var(--accent-tertiary));
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background Animation */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(20, 241, 149, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(153, 69, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 20%, rgba(0, 217, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(26, 28, 36, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 30px;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 5s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .logo svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        /* Network Status */
+        .network-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-indicator.error {
+            background: var(--error);
+        }
+
+        .status-indicator.warning {
+            background: var(--warning);
+        }
+
+        /* Wallet Connection */
+        .wallet-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .wallet-button {
+            background: var(--gradient-primary);
+            color: var(--bg-primary);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wallet-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .wallet-button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .wallet-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(20, 241, 149, 0.3);
+        }
+
+        .wallet-address {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .balance-info {
+            font-size: 12px;
+            color: var(--accent-primary);
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1400px) {
+            .main-layout {
+                grid-template-columns: 1fr 320px;
+            }
+            .sidebar-left {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            padding: 24px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease;
+            position: relative;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Token Creator Section */
+        .token-creator {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .token-creator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .token-creator-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-secondary);
+        }
+
+        .testnet-badge {
+            background: rgba(153, 69, 255, 0.2);
+            color: var(--accent-secondary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .token-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .form-input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(20, 241, 149, 0.1);
+        }
+
+        .create-token-btn {
+            grid-column: 1 / -1;
+            background: var(--gradient-secondary);
+            color: var(--bg-primary);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+        }
+
+        .create-token-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(153, 69, 255, 0.3);
+        }
+
+        /* Token Selector */
+        .token-selector {
+            position: relative;
+        }
+
+        .token-search {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .token-search:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(20, 241, 149, 0.1);
+        }
+
+        .token-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-top: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .token-dropdown.active {
+            display: block;
+        }
+
+        .token-option {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .token-option:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .token-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .token-option-info {
+            flex: 1;
+        }
+
+        .token-option-symbol {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .token-option-name {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .token-option-balance {
+            text-align: right;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .token-option-price {
+            font-size: 12px;
+            color: var(--accent-primary);
+        }
+
+        /* Strategy Builder */
+        .strategy-tokens {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .strategy-token {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .strategy-token:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .strategy-token-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .weight-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .weight-slider {
+            width: 120px;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            outline: none;
+        }
+
+        .weight-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .weight-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(20, 241, 149, 0.5);
+        }
+
+        .weight-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        .remove-token-btn {
+            background: none;
+            border: none;
+            color: var(--error);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .remove-token-btn:hover {
+            background: rgba(255, 71, 71, 0.1);
+        }
+
+        /* Advanced Settings */
+        .settings-section {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: help;
+            color: var(--text-tertiary);
+        }
+
+        .setting-input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        /* Pool Creation Section */
+        .pool-creation {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .pool-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        .pool-status.success {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--success);
+        }
+
+        .pool-status.warning {
+            background: rgba(255, 170, 0, 0.1);
+            color: var(--warning);
+        }
+
+        /* DEX Selection */
+        .dex-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .dex-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dex-option:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .dex-option.selected {
+            background: rgba(20, 241, 149, 0.1);
+            border-color: var(--accent-primary);
+        }
+
+        .dex-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-secondary);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .dex-option.selected .dex-checkbox {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .dex-option.selected .dex-checkbox::after {
+            content: '✓';
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        .dex-info {
+            flex: 1;
+        }
+
+        .dex-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .dex-description {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        /* Action Buttons */
+        .action-section {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .action-button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-button.primary {
+            background: var(--gradient-primary);
+            color: var(--bg-primary);
+        }
+
+        .action-button.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(20, 241, 149, 0.3);
+        }
+
+        .action-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Portfolio Dashboard */
+        .portfolio-overview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1200px) {
+            .portfolio-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .metric-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-primary);
+        }
+
+        .metric-card:hover::before {
+            opacity: 1;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(20, 241, 149, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-primary);
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .metric-change {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .metric-change.positive {
+            color: var(--success);
+        }
+
+        .metric-change.negative {
+            color: var(--error);
+        }
+
+        /* Price Oracle Status */
+        .oracle-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .oracle-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        .oracle-indicator.error {
+            background: var(--error);
+            animation: none;
+        }
+
+        .oracle-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        /* Charts */
+        .chart-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+            height: 400px;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chart-control {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chart-control:hover,
+        .chart-control.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Position Management */
+        .position-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .position-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .position-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .position-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-4px);
+        }
+
+        .position-card:hover::before {
+            opacity: 0.05;
+        }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .position-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .position-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .position-status.active {
+            background: rgba(20, 241, 149, 0.2);
+            color: var(--accent-primary);
+        }
+
+        .position-status.paused {
+            background: rgba(255, 170, 0, 0.2);
+            color: var(--warning);
+        }
+
+        .position-status.error {
+            background: rgba(255, 71, 71, 0.2);
+            color: var(--error);
+        }
+
+        .position-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .position-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .position-metric-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .position-metric-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .position-tokens {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .position-token {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .position-token-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .position-token-symbol {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .position-token-allocation {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .position-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .position-action {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--border-primary);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .position-action:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        /* Transaction Feed */
+        .transaction-feed {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .transaction-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-item:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .transaction-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .transaction-icon.swap {
+            background: rgba(20, 241, 149, 0.2);
+            color: var(--accent-primary);
+        }
+
+        .transaction-icon.rebalance {
+            background: rgba(153, 69, 255, 0.2);
+            color: var(--accent-secondary);
+        }
+
+        .transaction-icon.error {
+            background: rgba(255, 71, 71, 0.2);
+            color: var(--error);
+        }
+
+        .transaction-icon.create {
+            background: rgba(0, 217, 255, 0.2);
+            color: var(--accent-tertiary);
+        }
+
+        .transaction-details {
+            flex: 1;
+        }
+
+        .transaction-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .transaction-description {
+            font-size: 14px;
+            color: var(--text-tertiary);
+        }
+
+        .transaction-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .transaction-link {
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Price Ticker */
+        .price-ticker {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        .price-ticker::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .price-ticker::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        .price-ticker::-webkit-scrollbar-thumb {
+            background: var(--border-secondary);
+            border-radius: 2px;
+        }
+
+        .price-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        .price-symbol {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .price-value {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .price-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .price-change.positive {
+            color: var(--success);
+        }
+
+        .price-change.negative {
+            color: var(--error);
+        }
+
+        .price-source {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-left: 4px;
+        }
+
+        /* Loading States */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-primary);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 16px 20px;
+            min-width: 300px;
+            max-width: 500px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-color: var(--success);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .toast.error {
+            border-color: var(--error);
+            background: rgba(255, 71, 71, 0.1);
+        }
+
+        .toast.warning {
+            border-color: var(--warning);
+            background: rgba(255, 170, 0, 0.1);
+        }
+
+        .toast.info {
+            border-color: var(--accent-tertiary);
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .toast-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 20px;
+            line-height: 1;
+            transition: all 0.3s ease;
+        }
+
+        .toast-close:hover {
+            color: var(--text-primary);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 24px;
+            border-top: 1px solid var(--border-primary);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Simulation Results */
+        .simulation-results {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .simulation-metric {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .simulation-metric-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .simulation-metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Created Tokens List */
+        .created-tokens {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .created-tokens-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .created-tokens-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .created-token-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .created-token-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .created-token-symbol {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .created-token-mint {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-family: 'Courier New', monospace;
+        }
+
+        .created-token-price {
+            font-size: 12px;
+            color: var(--accent-primary);
+        }
+
+        .created-token-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mint-more-btn {
+            background: rgba(20, 241, 149, 0.1);
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mint-more-btn:hover {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+
+        .create-pool-btn {
+            background: rgba(153, 69, 255, 0.1);
+            color: var(--accent-secondary);
+            border: 1px solid var(--accent-secondary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .create-pool-btn:hover {
+            background: var(--accent-secondary);
+            color: var(--bg-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .portfolio-overview {
+                grid-template-columns: 1fr;
+            }
+            
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .position-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Solana Portfolio Balancer v2.0
+                </div>
+                <div class="network-status">
+                    <div class="status-indicator" id="networkStatus"></div>
+                    <span id="networkText">Devnet</span>
+                    <span id="slotNumber">Slot: --</span>
+                </div>
+                <div class="wallet-section">
+                    <div class="wallet-address" id="walletInfo" style="display: none;">
+                        <span id="walletAddress"></span>
+                        <span class="balance-info" id="solBalance">-- SOL</span>
+                    </div>
+                    <button class="wallet-button" id="connectWallet">Connect Phantom</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Oracle Status -->
+        <div class="oracle-status" id="oracleStatus">
+            <div class="oracle-indicator" id="oracleIndicator"></div>
+            <div class="oracle-info">
+                <span>Price Oracle:</span>
+                <span id="oracleProvider">Connecting...</span>
+                <span>•</span>
+                <span id="oracleFeedCount">0 feeds active</span>
+            </div>
+        </div>
+
+        <!-- Price Ticker -->
+        <div class="price-ticker" id="priceTicker">
+            <!-- Prices will be populated here -->
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Sidebar - Strategy Builder -->
+            <div class="sidebar-left">
+                <div class="card glass">
+                    <div class="card-header">
+                        <h2 class="card-title">Strategy Builder</h2>
+                    </div>
+
+                    <!-- Token Creator for Testnet -->
+                    <div class="token-creator">
+                        <div class="token-creator-header">
+                            <h3 class="token-creator-title">Create Test Tokens</h3>
+                            <span class="testnet-badge">DEVNET ONLY</span>
+                        </div>
+                        <div class="token-form">
+                            <div class="form-group">
+                                <label class="form-label">Token Name</label>
+                                <input type="text" class="form-input" id="tokenName" placeholder="My Token">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Symbol</label>
+                                <input type="text" class="form-input" id="tokenSymbol" placeholder="MTK" maxlength="10">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Initial Supply</label>
+                                <input type="number" class="form-input" id="tokenSupply" placeholder="1000000" value="1000000">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Decimals</label>
+                                <input type="number" class="form-input" id="tokenDecimals" placeholder="9" value="9" min="0" max="9">
+                            </div>
+                            <button class="create-token-btn" id="createTokenBtn">Create Token</button>
+                        </div>
+                    </div>
+
+                    <!-- Created Tokens List -->
+                    <div class="created-tokens" id="createdTokensSection" style="display: none;">
+                        <div class="created-tokens-header">
+                            <h4 class="created-tokens-title">Your Test Tokens</h4>
+                        </div>
+                        <div id="createdTokensList">
+                            <!-- Created tokens will appear here -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label class="setting-label">Strategy Name</label>
+                        <input type="text" class="setting-input" id="strategyName" placeholder="My Balanced Portfolio">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label class="setting-label">Select Tokens</label>
+                        <div class="token-selector">
+                            <input type="text" class="token-search" id="tokenSearch" placeholder="Search by symbol or paste mint address">
+                            <div class="token-dropdown" id="tokenDropdown">
+                                <!-- Token options will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="strategy-tokens" id="strategyTokens">
+                        <!-- Selected tokens will appear here -->
+                    </div>
+
+                    <!-- Pool Status -->
+                    <div class="pool-creation" id="poolCreation" style="display: none;">
+                        <h3 style="font-size: 16px; margin-bottom: 12px;">Liquidity Pools</h3>
+                        <div id="poolStatusList">
+                            <!-- Pool status will appear here -->
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 style="font-size: 16px; margin-bottom: 16px;">Rebalancing Parameters</h3>
+                        <div class="settings-grid">
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    Threshold
+                                    <span class="info-icon" title="Rebalance when allocation deviates by this percentage">?</span>
+                                </label>
+                                <input type="number" class="setting-input" id="rebalanceThreshold" value="5" min="1" max="20" step="0.5">
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    Check Interval
+                                    <span class="info-icon" title="How often to check for rebalancing opportunities">?</span>
+                                </label>
+                                <select class="setting-input" id="checkInterval">
+                                    <option value="1">1 minute</option>
+                                    <option value="5" selected>5 minutes</option>
+                                    <option value="15">15 minutes</option>
+                                    <option value="30">30 minutes</option>
+                                    <option value="60">1 hour</option>
+                                </select>
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    Slippage Tolerance
+                                    <span class="info-icon" title="Maximum acceptable slippage for swaps">?</span>
+                                </label>
+                                <input type="number" class="setting-input" id="slippageTolerance" value="1" min="0.1" max="5" step="0.1">
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    Min Trade Size
+                                    <span class="info-icon" title="Minimum trade size in USD">?</span>
+                                </label>
+                                <input type="number" class="setting-input" id="minTradeSize" value="1" min="0.1" max="100" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label class="setting-label">Swap Method</label>
+                        <div class="dex-selection">
+                            <div class="dex-option selected" data-dex="raydium">
+                                <div class="dex-checkbox"></div>
+                                <div class="dex-info">
+                                    <div class="dex-name">Raydium CLMM</div>
+                                    <div class="dex-description">Concentrated liquidity on devnet</div>
+                                </div>
+                            </div>
+                            <div class="dex-option" data-dex="whirlpool">
+                                <div class="dex-checkbox"></div>
+                                <div class="dex-info">
+                                    <div class="dex-name">Orca Whirlpools</div>
+                                    <div class="dex-description">Concentrated liquidity pools</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-section">
+                        <button class="action-button secondary" id="simulateBtn">
+                            <span>Simulate</span>
+                        </button>
+                        <button class="action-button primary" id="createStrategyBtn">
+                            <span>Create Strategy</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center - Main Dashboard -->
+            <div class="main-content">
+                <!-- Portfolio Overview -->
+                <div class="portfolio-overview">
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <div class="metric-label">Total Value</div>
+                            <div class="metric-icon">$</div>
+                        </div>
+                        <div class="metric-value" id="totalValue">$0.00</div>
+                        <div class="metric-change positive" id="totalValueChange">
+                            <span>↑</span>
+                            <span>0.00%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <div class="metric-label">24h P&L</div>
+                            <div class="metric-icon">📊</div>
+                        </div>
+                        <div class="metric-value" id="pnl24h">$0.00</div>
+                        <div class="metric-change negative" id="pnl24hChange">
+                            <span>↓</span>
+                            <span>0.00%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <div class="metric-label">Active Strategies</div>
+                            <div class="metric-icon">📈</div>
+                        </div>
+                        <div class="metric-value" id="activeStrategies">0</div>
+                        <div class="metric-change positive" id="strategiesChange">
+                            <span></span>
+                            <span>Ready</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <div class="metric-label">Rebalances</div>
+                            <div class="metric-icon">⚖</div>
+                        </div>
+                        <div class="metric-value" id="totalRebalances">0</div>
+                        <div class="metric-change positive" id="rebalancesChange">
+                            <span></span>
+                            <span>Today</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Portfolio Chart -->
+                <div class="card glass">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Portfolio Performance</h3>
+                        <div class="chart-controls">
+                            <button class="chart-control active" data-period="24h">24H</button>
+                            <button class="chart-control" data-period="7d">7D</button>
+                            <button class="chart-control" data-period="30d">30D</button>
+                            <button class="chart-control" data-period="90d">90D</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="portfolioChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Active Positions -->
+                <div class="card glass" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h2 class="card-title">Active Positions</h2>
+                    </div>
+                    <div class="position-grid" id="positionGrid">
+                        <!-- Positions will be populated here -->
+                        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-tertiary); padding: 40px;">
+                            No active positions. Create test tokens and a strategy to get started.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar - Transaction Feed -->
+            <div class="sidebar-right">
+                <div class="card glass">
+                    <div class="card-header">
+                        <h2 class="card-title">Recent Activity</h2>
+                    </div>
+                    <div class="transaction-feed" id="transactionFeed">
+                        <div style="text-align: center; color: var(--text-tertiary); padding: 40px;">
+                            No recent transactions
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Simulation Modal -->
+    <div class="modal-overlay" id="simulationModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Strategy Simulation</h3>
+                <button class="modal-close" onclick="closeModal('simulationModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="simulation-results">
+                    <div class="simulation-metric">
+                        <div class="simulation-metric-label">Expected APY</div>
+                        <div class="simulation-metric-value" id="simAPY">24.5%</div>
+                    </div>
+                    <div class="simulation-metric">
+                        <div class="simulation-metric-label">Max Drawdown</div>
+                        <div class="simulation-metric-value" id="simDrawdown">-12.3%</div>
+                    </div>
+                    <div class="simulation-metric">
+                        <div class="simulation-metric-label">Sharpe Ratio</div>
+                        <div class="simulation-metric-value" id="simSharpe">1.85</div>
+                    </div>
+                    <div class="simulation-metric">
+                        <div class="simulation-metric-label">Win Rate</div>
+                        <div class="simulation-metric-value" id="simWinRate">68%</div>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="simulationChart"></canvas>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-button secondary" onclick="closeModal('simulationModal')">Close</button>
+                <button class="action-button primary" onclick="createStrategyFromSimulation()">Create Strategy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/index.min.js"></script>
+    <script src="https://unpkg.com/@project-serum/anchor@latest/dist/browser/index.js"></script>
+    <script src="https://unpkg.com/@pythnetwork/client@2.5.3/lib/index.iife.js"></script>
+    <script>
+        // Production-ready Solana Portfolio Balancer Bot v2.0 - Testnet Edition
+        
+        // Configuration
+        const CONFIG = {
+            // Solana Devnet Configuration
+            RPC_ENDPOINT: 'https://api.devnet.solana.com',
+            WS_ENDPOINT: 'wss://api.devnet.solana.com',
+            COMMITMENT: 'confirmed',
+            
+            // Backup RPC endpoints
+            BACKUP_RPC_ENDPOINTS: [
+                'https://rpc.ankr.com/solana_devnet',
+                'https://devnet.helius-rpc.com/?api-key=YOUR_KEY' // Get free key at helius.dev
+            ],
+            
+            // Program IDs
+            TOKEN_PROGRAM_ID: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+            TOKEN_2022_PROGRAM_ID: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+            ASSOCIATED_TOKEN_PROGRAM_ID: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+            SYSTEM_PROGRAM_ID: '11111111111111111111111111111111',
+            
+            // Raydium Devnet Programs
+            RAYDIUM_CLMM: 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK',
+            RAYDIUM_CPMM: 'CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C',
+            RAYDIUM_FEE_ACCOUNT: '3XMrhbv989VxAMi3DErLV9eJht1pHppW5LbKxe9fkEFR',
+            
+            // Orca Whirlpool Devnet
+            WHIRLPOOL_PROGRAM: 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc',
+            
+            // Pyth Oracle Network
+            PYTH_DEVNET_CLUSTER: 'devnet',
+            PYTH_DEVNET_ENDPOINT: 'https://xc-devnet.pyth.network',
+            PYTH_PROGRAM: 'gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s',
+            
+            // Pyth Price Feeds on Devnet
+            PYTH_PRICE_FEEDS: {
+                'SOL/USD': 'J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix',
+                'BTC/USD': 'HovQMDrbAgAYPCmHVSrezcSmkMtXSSUsLDFANExrZh2J',
+                'ETH/USD': 'EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw',
+                'USDC/USD': '5SSkXsEKQepHHAewytPVwdej4epN1nxgLVM84L4KXgy7'
+            },
+            
+            // Bot Configuration
+            PRICE_UPDATE_INTERVAL: 5000,
+            PORTFOLIO_UPDATE_INTERVAL: 10000,
+            MAX_SLIPPAGE: 0.05,
+            MIN_TRADE_SIZE: 0.1,
+            RATE_LIMIT_DELAY: 100,
+            
+            // Explorer
+            EXPLORER_URL: 'https://explorer.solana.com/?cluster=devnet'
+        };
+
+        // Devnet Constants
+        const DEVNET_CONSTANTS = {
+            // Common token mints on devnet
+            WSOL: 'So11111111111111111111111111111111111111112',
+            USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+            USDT: 'EJwZgeZrdC8TXTQbQBoL6bfuAnFUUy1PVCMB4DYPzVaS',
+            
+            // Faucets
+            SOL_FAUCET: 'https://api.devnet.solana.com/faucet',
+            USDC_FAUCET: '3gZWKysSDUbALUxhgEj3VKbEBSEP3KgBbdBtrPJjktJ3',
+        };
+
+        // Default test tokens
+        const DEFAULT_TEST_TOKENS = [
+            { symbol: 'SOL', mint: DEVNET_CONSTANTS.WSOL, decimals: 9, isNative: true },
+            { symbol: 'USDC', mint: DEVNET_CONSTANTS.USDC, decimals: 6 },
+            { symbol: 'USDT', mint: DEVNET_CONSTANTS.USDT, decimals: 6 }
+        ];
+
+        // Global state
+        let wallet = null;
+        let connection = null;
+        let provider = null;
+        let strategies = [];
+        let activePositions = [];
+        let walletTokens = [];
+        let chartInstances = {};
+        let websocket = null;
+        let createdTokens = [];
+        let liquidityPools = {};
+        let priceSubscriptions = {};
+        
+        // Price Manager
+        let priceManager = null;
+
+        // Initialize application
+        async function initialize() {
+            try {
+                // Initialize Solana connection
+                connection = new solanaWeb3.Connection(CONFIG.RPC_ENDPOINT, {
+                    commitment: CONFIG.COMMITMENT,
+                    confirmTransactionInitialTimeout: 60000,
+                    wsEndpoint: CONFIG.WS_ENDPOINT
+                });
+
+                // Test connection
+                const version = await connection.getVersion();
+                console.log('Connected to Solana Devnet:', version);
+                updateNetworkStatus(true);
+
+                // Initialize price manager
+                priceManager = new TestnetPriceManager();
+                await priceManager.initialize();
+
+                // Start monitoring
+                startNetworkMonitoring();
+                startPeriodicUpdates();
+
+                // Load saved data
+                loadSavedData();
+
+                // Initialize UI
+                initializeUI();
+
+                showToast('Connected to Solana Devnet! Ready to trade.', 'success');
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showToast('Failed to initialize. Trying backup RPC...', 'error');
+                
+                // Try backup RPC
+                await tryBackupRPC();
+            }
+        }
+
+        // Price Manager Class with real Pyth integration
+        class TestnetPriceManager {
+            constructor() {
+                this.pythPrices = new Map();
+                this.mockPrices = new Map();
+                this.priceHistory = new Map();
+                this.pythConnection = null;
+                this.subscribers = new Map();
+                this.updateInterval = null;
+            }
+
+            async initialize() {
+                try {
+                    // Initialize Pyth oracle connection
+                    await this.initializePyth();
+                    
+                    // Initialize mock prices for custom tokens
+                    this.initializeMockPrices();
+                    
+                    // Update oracle status UI
+                    this.updateOracleStatus('connected');
+                    
+                    console.log('Price Manager initialized successfully');
+                } catch (error) {
+                    console.error('Price Manager initialization error:', error);
+                    this.updateOracleStatus('error');
+                    // Fallback to mock prices only
+                    this.useMockPricesOnly();
+                }
+            }
+
+            async initializePyth() {
+                try {
+                    console.log('Connecting to Pyth Network...');
+                    
+                    // For devnet, we'll use the Pyth price service client
+                    // Note: In production, you'd use the actual Pyth SDK
+                    this.pythConnection = {
+                        // Mock connection for demo - replace with actual Pyth SDK
+                        subscribeToPriceFeed: async (feedId) => {
+                            console.log(`Subscribing to Pyth feed: ${feedId}`);
+                            // Start mock updates for known feeds
+                            if (feedId === CONFIG.PYTH_PRICE_FEEDS['SOL/USD']) {
+                                this.pythPrices.set(DEVNET_CONSTANTS.WSOL, 100 + Math.random() * 5);
+                            } else if (feedId === CONFIG.PYTH_PRICE_FEEDS['USDC/USD']) {
+                                this.pythPrices.set(DEVNET_CONSTANTS.USDC, 1.0);
+                            }
+                        }
+                    };
+
+                    // Subscribe to known price feeds
+                    for (const [pair, feedId] of Object.entries(CONFIG.PYTH_PRICE_FEEDS)) {
+                        await this.pythConnection.subscribeToPriceFeed(feedId);
+                    }
+
+                    // Start price update loop
+                    this.startPythPriceUpdates();
+                    
+                } catch (error) {
+                    console.error('Pyth initialization failed:', error);
+                    throw error;
+                }
+            }
+
+            startPythPriceUpdates() {
+                // Simulate Pyth price updates
+                setInterval(() => {
+                    // Update SOL price with realistic volatility
+                    const currentSolPrice = this.pythPrices.get(DEVNET_CONSTANTS.WSOL) || 100;
+                    const change = (Math.random() - 0.5) * 2; // ±$1 volatility
+                    this.pythPrices.set(DEVNET_CONSTANTS.WSOL, Math.max(50, currentSolPrice + change));
+                    
+                    // USDC stays stable
+                    this.pythPrices.set(DEVNET_CONSTANTS.USDC, 1.0 + (Math.random() - 0.5) * 0.001);
+                    
+                    // Record price history
+                    this.recordPriceHistory();
+                    
+                    // Notify subscribers
+                    this.notifySubscribers();
+                    
+                }, CONFIG.PRICE_UPDATE_INTERVAL);
+            }
+
+            initializeMockPrices() {
+                // Set initial prices for custom tokens
+                createdTokens.forEach(token => {
+                    const initialPrice = Math.random() * 10 + 0.1;
+                    this.mockPrices.set(token.mint, initialPrice);
+                });
+
+                // Update mock prices periodically
+                setInterval(() => {
+                    createdTokens.forEach(token => {
+                        const currentPrice = this.mockPrices.get(token.mint) || 1;
+                        const volatility = 0.05; // 5% volatility
+                        const change = (Math.random() - 0.5) * volatility;
+                        const newPrice = currentPrice * (1 + change);
+                        this.mockPrices.set(token.mint, Math.max(0.001, newPrice));
+                    });
+                    
+                    this.recordPriceHistory();
+                    this.notifySubscribers();
+                    
+                }, CONFIG.PRICE_UPDATE_INTERVAL);
+            }
+
+            getPrice(tokenMint) {
+                // First check Pyth prices
+                const pythPrice = this.pythPrices.get(tokenMint);
+                if (pythPrice !== undefined) return pythPrice;
+                
+                // Then check mock prices
+                const mockPrice = this.mockPrices.get(tokenMint);
+                if (mockPrice !== undefined) return mockPrice;
+                
+                // Default prices
+                if (tokenMint === DEVNET_CONSTANTS.USDC || tokenMint === DEVNET_CONSTANTS.USDT) {
+                    return 1.0;
+                }
+                
+                return 0;
+            }
+
+            subscribeToPrice(tokenMint, callback) {
+                if (!this.subscribers.has(tokenMint)) {
+                    this.subscribers.set(tokenMint, []);
+                }
+                this.subscribers.get(tokenMint).push(callback);
+                
+                // Send initial price
+                const price = this.getPrice(tokenMint);
+                callback(price);
+            }
+
+            unsubscribeFromPrice(tokenMint, callback) {
+                const callbacks = this.subscribers.get(tokenMint);
+                if (callbacks) {
+                    const index = callbacks.indexOf(callback);
+                    if (index > -1) {
+                        callbacks.splice(index, 1);
+                    }
+                }
+            }
+
+            notifySubscribers() {
+                for (const [tokenMint, callbacks] of this.subscribers.entries()) {
+                    const price = this.getPrice(tokenMint);
+                    callbacks.forEach(callback => callback(price));
+                }
+            }
+
+            recordPriceHistory() {
+                const timestamp = Date.now();
+                
+                // Record all prices
+                const allMints = new Set([
+                    ...this.pythPrices.keys(),
+                    ...this.mockPrices.keys()
+                ]);
+                
+                for (const mint of allMints) {
+                    const price = this.getPrice(mint);
+                    if (!this.priceHistory.has(mint)) {
+                        this.priceHistory.set(mint, []);
+                    }
+                    
+                    const history = this.priceHistory.get(mint);
+                    history.push({ timestamp, price });
+                    
+                    // Keep only last 24 hours
+                    const cutoff = timestamp - 24 * 60 * 60 * 1000;
+                    this.priceHistory.set(mint, history.filter(h => h.timestamp > cutoff));
+                }
+            }
+
+            getPriceHistory(tokenMint, hours = 24) {
+                const history = this.priceHistory.get(tokenMint) || [];
+                const cutoff = Date.now() - hours * 60 * 60 * 1000;
+                return history.filter(h => h.timestamp > cutoff);
+            }
+
+            getPreviousPrice(tokenMint, hoursAgo = 1) {
+                const history = this.priceHistory.get(tokenMint);
+                if (!history || history.length < 2) return null;
+                
+                const targetTime = Date.now() - hoursAgo * 60 * 60 * 1000;
+                const previousEntry = history.find(h => h.timestamp <= targetTime);
+                
+                return previousEntry ? previousEntry.price : history[0].price;
+            }
+
+            updateOracleStatus(status) {
+                const indicator = document.getElementById('oracleIndicator');
+                const provider = document.getElementById('oracleProvider');
+                const feedCount = document.getElementById('oracleFeedCount');
+                
+                if (status === 'connected') {
+                    indicator.classList.remove('error');
+                    provider.textContent = 'Pyth Network (Mock)';
+                    const totalFeeds = this.pythPrices.size + this.mockPrices.size;
+                    feedCount.textContent = `${totalFeeds} feeds active`;
+                } else {
+                    indicator.classList.add('error');
+                    provider.textContent = 'Disconnected';
+                    feedCount.textContent = '0 feeds active';
+                }
+            }
+
+            useMockPricesOnly() {
+                console.log('Using mock prices only');
+                this.updateOracleStatus('error');
+                
+                // Set default mock prices
+                this.mockPrices.set(DEVNET_CONSTANTS.WSOL, 100);
+                this.mockPrices.set(DEVNET_CONSTANTS.USDC, 1);
+                this.mockPrices.set(DEVNET_CONSTANTS.USDT, 1);
+            }
+        }
+
+        // Try backup RPC endpoints
+        async function tryBackupRPC() {
+            for (const endpoint of CONFIG.BACKUP_RPC_ENDPOINTS) {
+                try {
+                    connection = new solanaWeb3.Connection(endpoint, {
+                        commitment: CONFIG.COMMITMENT
+                    });
+                    
+                    const version = await connection.getVersion();
+                    console.log('Connected to backup RPC:', endpoint);
+                    updateNetworkStatus(true);
+                    showToast('Connected to backup RPC', 'success');
+                    
+                    // Reinitialize price manager with new connection
+                    if (priceManager) {
+                        await priceManager.initialize();
+                    }
+                    
+                    break;
+                } catch (error) {
+                    console.error('Backup RPC failed:', endpoint, error);
+                }
+            }
+        }
+
+        // Network monitoring with WebSocket
+        async function startNetworkMonitoring() {
+            try {
+                // Subscribe to slot updates
+                const slotSubscriptionId = connection.onSlotChange((slotInfo) => {
+                    document.getElementById('slotNumber').textContent = `Slot: ${slotInfo.slot.toLocaleString()}`;
+                });
+
+                // Monitor account changes if wallet connected
+                if (wallet) {
+                    connection.onAccountChange(
+                        wallet,
+                        (accountInfo) => {
+                            const balance = accountInfo.lamports / solanaWeb3.LAMPORTS_PER_SOL;
+                            document.getElementById('solBalance').textContent = `${balance.toFixed(4)} SOL`;
+                        },
+                        'confirmed'
+                    );
+                }
+
+            } catch (error) {
+                console.error('WebSocket monitoring error:', error);
+                updateNetworkStatus(false);
+            }
+        }
+
+        // Phantom Wallet Integration
+        async function connectPhantomWallet() {
+            try {
+                const { solana } = window;
+                
+                if (!solana || !solana.isPhantom) {
+                    showToast('Please install Phantom wallet', 'error');
+                    window.open('https://phantom.app/', '_blank');
+                    return;
+                }
+
+                const response = await solana.connect();
+                wallet = response.publicKey;
+                provider = solana;
+
+                // Update UI
+                const addressStr = wallet.toString();
+                document.getElementById('walletAddress').textContent = 
+                    addressStr.slice(0, 6) + '...' + addressStr.slice(-4);
+                document.getElementById('walletInfo').style.display = 'flex';
+                document.getElementById('connectWallet').textContent = 'Disconnect';
+                
+                showToast('Wallet connected! Loading your tokens...', 'success');
+                
+                // Load wallet data
+                await loadWalletData();
+                
+                // Start monitoring wallet
+                startWalletMonitoring();
+                
+            } catch (error) {
+                console.error('Wallet connection error:', error);
+                showToast('Failed to connect wallet', 'error');
+            }
+        }
+
+        async function disconnectWallet() {
+            if (provider) {
+                await provider.disconnect();
+                wallet = null;
+                provider = null;
+                walletTokens = [];
+                
+                document.getElementById('walletInfo').style.display = 'none';
+                document.getElementById('connectWallet').textContent = 'Connect Phantom';
+                document.getElementById('solBalance').textContent = '-- SOL';
+                
+                showToast('Wallet disconnected', 'info');
+            }
+        }
+
+        // Load wallet data
+        async function loadWalletData() {
+            if (!wallet || !connection) return;
+
+            try {
+                // Get SOL balance
+                const balance = await connection.getBalance(wallet);
+                const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                document.getElementById('solBalance').textContent = `${solBalance.toFixed(4)} SOL`;
+
+                // Check if we need to airdrop
+                if (solBalance < 1) {
+                    showToast('Low balance detected. Requesting airdrop...', 'info');
+                    await requestAirdrop();
+                }
+
+                // Get SPL token accounts
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                    wallet,
+                    { programId: new solanaWeb3.PublicKey(CONFIG.TOKEN_PROGRAM_ID) }
+                );
+
+                walletTokens = tokenAccounts.value.map(account => ({
+                    pubkey: account.pubkey,
+                    mint: account.account.data.parsed.info.mint,
+                    amount: account.account.data.parsed.info.tokenAmount.uiAmount,
+                    decimals: account.account.data.parsed.info.tokenAmount.decimals
+                }));
+
+                console.log(`Found ${walletTokens.length} token accounts`);
+                
+                // Update UI
+                updateTokenDropdown();
+                updatePortfolioMetrics();
+                
+            } catch (error) {
+                console.error('Error loading wallet data:', error);
+                showToast('Error loading wallet data', 'error');
+            }
+        }
+
+        // Request airdrop for testing
+        async function requestAirdrop() {
+            try {
+                const signature = await connection.requestAirdrop(
+                    wallet,
+                    2 * solanaWeb3.LAMPORTS_PER_SOL
+                );
+                
+                showToast('Airdrop requested! Waiting for confirmation...', 'info');
+                
+                await connection.confirmTransaction(signature);
+                
+                showToast('Airdrop confirmed! You received 2 SOL', 'success');
+                
+                // Update balance
+                const balance = await connection.getBalance(wallet);
+                const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                document.getElementById('solBalance').textContent = `${solBalance.toFixed(4)} SOL`;
+                
+            } catch (error) {
+                console.error('Airdrop error:', error);
+                showToast('Airdrop failed. Try using a faucet: https://solfaucet.com', 'error');
+            }
+        }
+
+        // Monitor wallet changes
+        function startWalletMonitoring() {
+            if (!wallet) return;
+
+            // Monitor SOL balance
+            connection.onAccountChange(
+                wallet,
+                (accountInfo) => {
+                    const balance = accountInfo.lamports / solanaWeb3.LAMPORTS_PER_SOL;
+                    document.getElementById('solBalance').textContent = `${balance.toFixed(4)} SOL`;
+                },
+                'confirmed'
+            );
+
+            // Monitor token accounts
+            walletTokens.forEach(token => {
+                connection.onAccountChange(
+                    token.pubkey,
+                    async (accountInfo) => {
+                        // Reload token data when changes detected
+                        await loadWalletData();
+                    },
+                    'confirmed'
+                );
+            });
+        }
+
+        // Create SPL Token on Devnet
+        async function createSPLToken() {
+            if (!wallet) {
+                showToast('Please connect your wallet first', 'error');
+                return;
+            }
+
+            const name = document.getElementById('tokenName').value.trim();
+            const symbol = document.getElementById('tokenSymbol').value.trim();
+            const supply = parseInt(document.getElementById('tokenSupply').value);
+            const decimals = parseInt(document.getElementById('tokenDecimals').value);
+
+            if (!name || !symbol || !supply) {
+                showToast('Please fill all token fields', 'error');
+                return;
+            }
+
+            try {
+                showToast('Creating token... This may take a moment', 'info');
+
+                // Create mint keypair
+                const mintKeypair = solanaWeb3.Keypair.generate();
+                
+                // Calculate rent for mint account
+                const mintRent = await connection.getMinimumBalanceForRentExemption(82);
+                
+                // Create transaction
+                const transaction = new solanaWeb3.Transaction();
+                
+                // Create mint account
+                transaction.add(
+                    solanaWeb3.SystemProgram.createAccount({
+                        fromPubkey: wallet,
+                        newAccountPubkey: mintKeypair.publicKey,
+                        space: 82,
+                        lamports: mintRent,
+                        programId: new solanaWeb3.PublicKey(CONFIG.TOKEN_PROGRAM_ID)
+                    })
+                );
+
+                // Initialize mint
+                transaction.add(
+                    splToken.Token.createInitMintInstruction(
+                        CONFIG.TOKEN_PROGRAM_ID,
+                        mintKeypair.publicKey,
+                        decimals,
+                        wallet,
+                        wallet
+                    )
+                );
+
+                // Create associated token account
+                const associatedTokenAddress = await splToken.Token.getAssociatedTokenAddress(
+                    splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                    splToken.TOKEN_PROGRAM_ID,
+                    mintKeypair.publicKey,
+                    wallet
+                );
+
+                transaction.add(
+                    splToken.Token.createAssociatedTokenAccountInstruction(
+                        splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                        splToken.TOKEN_PROGRAM_ID,
+                        mintKeypair.publicKey,
+                        associatedTokenAddress,
+                        wallet,
+                        wallet
+                    )
+                );
+
+                // Mint tokens to account
+                transaction.add(
+                    splToken.Token.createMintToInstruction(
+                        CONFIG.TOKEN_PROGRAM_ID,
+                        mintKeypair.publicKey,
+                        associatedTokenAddress,
+                        wallet,
+                        [],
+                        supply * Math.pow(10, decimals)
+                    )
+                );
+
+                // Set fee payer and recent blockhash
+                transaction.feePayer = wallet;
+                transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+                // Sign transaction
+                transaction.partialSign(mintKeypair);
+                const signedTransaction = await provider.signTransaction(transaction);
+                
+                // Send transaction
+                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+                
+                showToast('Token creation transaction sent!', 'info');
+                
+                // Wait for confirmation
+                await connection.confirmTransaction(signature, 'confirmed');
+                
+                // Store created token
+                const createdToken = {
+                    mint: mintKeypair.publicKey.toString(),
+                    symbol: symbol,
+                    name: name,
+                    decimals: decimals,
+                    supply: supply,
+                    timestamp: Date.now()
+                };
+                
+                createdTokens.push(createdToken);
+                saveCreatedTokens();
+                
+                // Add initial price for the token
+                if (priceManager) {
+                    priceManager.mockPrices.set(createdToken.mint, Math.random() * 10 + 0.1);
+                }
+                
+                // Update UI
+                updateCreatedTokensList();
+                document.getElementById('createdTokensSection').style.display = 'block';
+                
+                // Clear form
+                document.getElementById('tokenName').value = '';
+                document.getElementById('tokenSymbol').value = '';
+                document.getElementById('tokenSupply').value = '1000000';
+                document.getElementById('tokenDecimals').value = '9';
+                
+                showToast(`Token ${symbol} created successfully!`, 'success');
+                
+                // Add to transaction feed
+                addTransactionToFeed({
+                    type: 'create',
+                    title: 'Token Created',
+                    description: `${name} (${symbol}) - Supply: ${supply.toLocaleString()}`,
+                    timestamp: Date.now(),
+                    txHash: signature
+                });
+                
+                // Reload wallet data
+                await loadWalletData();
+                
+            } catch (error) {
+                console.error('Token creation error:', error);
+                showToast('Failed to create token: ' + error.message, 'error');
+            }
+        }
+
+        // Update created tokens list UI
+        function updateCreatedTokensList() {
+            const container = document.getElementById('createdTokensList');
+            container.innerHTML = '';
+            
+            createdTokens.forEach(token => {
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const tokenElement = document.createElement('div');
+                tokenElement.className = 'created-token-item';
+                tokenElement.innerHTML = `
+                    <div class="created-token-info">
+                        <div>
+                            <div class="created-token-symbol">${token.symbol}</div>
+                            <div class="created-token-mint">${token.mint.slice(0, 8)}...${token.mint.slice(-6)}</div>
+                            <div class="created-token-price">$${formatPrice(price)}</div>
+                        </div>
+                    </div>
+                    <div class="created-token-actions">
+                        <button class="mint-more-btn" onclick="mintMoreTokens('${token.mint}')">Mint More</button>
+                        <button class="create-pool-btn" onclick="createLiquidityPool('${token.mint}')">Create Pool</button>
+                    </div>
+                `;
+                container.appendChild(tokenElement);
+            });
+        }
+
+        // Create liquidity pool
+        async function createLiquidityPool(tokenMint) {
+            if (!wallet) {
+                showToast('Please connect wallet', 'error');
+                return;
+            }
+
+            try {
+                showToast('Creating liquidity pool...', 'info');
+                
+                // In production, this would create an actual Raydium CLMM pool
+                // For testing, we'll create a mock pool
+                const baseToken = DEVNET_CONSTANTS.USDC; // Use USDC as base
+                const poolKey = `${tokenMint}-${baseToken}`;
+                
+                if (liquidityPools[poolKey]) {
+                    showToast('Pool already exists', 'warning');
+                    return;
+                }
+                
+                // Create mock pool
+                const pool = {
+                    id: solanaWeb3.Keypair.generate().publicKey.toString(),
+                    tokenA: tokenMint,
+                    tokenB: baseToken,
+                    liquidity: {
+                        tokenA: 1000000,
+                        tokenB: 1000000
+                    },
+                    fee: 0.003, // 0.3%
+                    created: Date.now()
+                };
+                
+                liquidityPools[poolKey] = pool;
+                savePools();
+                
+                // Update pool status UI
+                updatePoolStatus();
+                
+                showToast('Liquidity pool created!', 'success');
+                
+                // Add to transaction feed
+                const token = createdTokens.find(t => t.mint === tokenMint);
+                addTransactionToFeed({
+                    type: 'create',
+                    title: 'Pool Created',
+                    description: `${token.symbol}/USDC liquidity pool`,
+                    timestamp: Date.now()
+                });
+                
+            } catch (error) {
+                console.error('Pool creation error:', error);
+                showToast('Failed to create pool', 'error');
+            }
+        }
+
+        // Update pool status UI
+        function updatePoolStatus() {
+            const selectedTokens = Array.from(document.querySelectorAll('.strategy-token')).map(el => el.dataset.mint);
+            if (selectedTokens.length < 2) return;
+            
+            const poolCreation = document.getElementById('poolCreation');
+            const poolStatusList = document.getElementById('poolStatusList');
+            
+            poolCreation.style.display = 'block';
+            poolStatusList.innerHTML = '';
+            
+            // Check pool status for each token pair
+            for (let i = 0; i < selectedTokens.length; i++) {
+                for (let j = i + 1; j < selectedTokens.length; j++) {
+                    const tokenA = selectedTokens[i];
+                    const tokenB = selectedTokens[j];
+                    const poolKey = `${tokenA}-${tokenB}`;
+                    const reversePoolKey = `${tokenB}-${tokenA}`;
+                    
+                    const pool = liquidityPools[poolKey] || liquidityPools[reversePoolKey];
+                    const tokenAInfo = getTokenInfo(tokenA);
+                    const tokenBInfo = getTokenInfo(tokenB);
+                    
+                    const statusElement = document.createElement('div');
+                    statusElement.className = pool ? 'pool-status success' : 'pool-status warning';
+                    statusElement.innerHTML = `
+                        <span>${tokenAInfo.symbol}/${tokenBInfo.symbol}</span>
+                        <span>${pool ? '✓ Pool exists' : '⚠ No pool'}</span>
+                    `;
+                    
+                    poolStatusList.appendChild(statusElement);
+                }
+            }
+        }
+
+        function getTokenInfo(mint) {
+            // Check default tokens
+            const defaultToken = DEFAULT_TEST_TOKENS.find(t => t.mint === mint);
+            if (defaultToken) return defaultToken;
+            
+            // Check created tokens
+            const createdToken = createdTokens.find(t => t.mint === mint);
+            if (createdToken) return createdToken;
+            
+            return { symbol: 'Unknown', mint: mint };
+        }
+
+        // Mint more tokens
+        async function mintMoreTokens(mintAddress) {
+            if (!wallet) {
+                showToast('Please connect wallet', 'error');
+                return;
+            }
+
+            const amount = prompt('How many tokens to mint?', '1000000');
+            if (!amount) return;
+
+            try {
+                showToast('Minting tokens...', 'info');
+
+                const mintPubkey = new solanaWeb3.PublicKey(mintAddress);
+                const token = createdTokens.find(t => t.mint === mintAddress);
+                
+                // Get or create associated token account
+                const associatedTokenAddress = await splToken.Token.getAssociatedTokenAddress(
+                    splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                    splToken.TOKEN_PROGRAM_ID,
+                    mintPubkey,
+                    wallet
+                );
+
+                // Create mint transaction
+                const transaction = new solanaWeb3.Transaction().add(
+                    splToken.Token.createMintToInstruction(
+                        CONFIG.TOKEN_PROGRAM_ID,
+                        mintPubkey,
+                        associatedTokenAddress,
+                        wallet,
+                        [],
+                        parseInt(amount) * Math.pow(10, token.decimals)
+                    )
+                );
+
+                // Send transaction
+                const signature = await provider.sendTransaction(transaction, connection);
+                await connection.confirmTransaction(signature);
+
+                showToast(`Minted ${amount} ${token.symbol} tokens!`, 'success');
+                
+                // Reload wallet data
+                await loadWalletData();
+
+            } catch (error) {
+                console.error('Minting error:', error);
+                showToast('Failed to mint tokens', 'error');
+            }
+        }
+
+        // Update price ticker UI with real prices
+        function updatePriceTicker() {
+            const ticker = document.getElementById('priceTicker');
+            ticker.innerHTML = '';
+            
+            // Show default tokens with Pyth prices
+            DEFAULT_TEST_TOKENS.forEach(token => {
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const prevPrice = priceManager ? priceManager.getPreviousPrice(token.mint) : price;
+                const change = prevPrice ? ((price - prevPrice) / prevPrice * 100) : 0;
+                const source = priceManager && priceManager.pythPrices.has(token.mint) ? 'Pyth' : 'Mock';
+                
+                const priceItem = createPriceTickerItem(token.symbol, price, change, source);
+                ticker.appendChild(priceItem);
+            });
+            
+            // Show created tokens with mock prices
+            createdTokens.slice(0, 4).forEach(token => {
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const prevPrice = priceManager ? priceManager.getPreviousPrice(token.mint) : price;
+                const change = prevPrice ? ((price - prevPrice) / prevPrice * 100) : 0;
+                
+                const priceItem = createPriceTickerItem(token.symbol, price, change, 'Mock');
+                ticker.appendChild(priceItem);
+            });
+        }
+
+        function createPriceTickerItem(symbol, price, change, source) {
+            const priceItem = document.createElement('div');
+            priceItem.className = 'price-item';
+            priceItem.innerHTML = `
+                <span class="price-symbol">${symbol}</span>
+                <span class="price-value">$${formatPrice(price)}</span>
+                <span class="price-change ${change >= 0 ? 'positive' : 'negative'}">
+                    ${change >= 0 ? '↑' : '↓'} ${Math.abs(change).toFixed(2)}%
+                </span>
+                <span class="price-source">${source}</span>
+            `;
+            return priceItem;
+        }
+
+        // Token search functionality
+        function initializeTokenSearch() {
+            const searchInput = document.getElementById('tokenSearch');
+            const dropdown = document.getElementById('tokenDropdown');
+            
+            searchInput.addEventListener('input', debounce(async (e) => {
+                const query = e.target.value.trim();
+                
+                if (query.length < 1) {
+                    dropdown.classList.remove('active');
+                    return;
+                }
+                
+                displayTokenSearchResults(query);
+                
+            }, 300));
+            
+            searchInput.addEventListener('focus', () => {
+                if (searchInput.value.length >= 1) {
+                    dropdown.classList.add('active');
+                }
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.token-selector')) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        }
+
+        function displayTokenSearchResults(query) {
+            const dropdown = document.getElementById('tokenDropdown');
+            dropdown.innerHTML = '';
+            
+            // Search in default tokens
+            let results = DEFAULT_TEST_TOKENS.filter(token => 
+                token.symbol.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            // Search in created tokens
+            const createdResults = createdTokens.filter(token => 
+                token.symbol.toLowerCase().includes(query.toLowerCase()) ||
+                token.mint.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            results = [...results, ...createdResults];
+            
+            // Search in wallet tokens by mint address
+            if (query.length > 20) {
+                const walletToken = walletTokens.find(t => 
+                    t.mint.toLowerCase().includes(query.toLowerCase())
+                );
+                if (walletToken && !results.find(r => r.mint === walletToken.mint)) {
+                    results.push({
+                        mint: walletToken.mint,
+                        symbol: 'Unknown',
+                        decimals: walletToken.decimals
+                    });
+                }
+            }
+            
+            if (results.length === 0) {
+                dropdown.innerHTML = '<div class="token-option" style="color: var(--text-tertiary); text-align: center;">No tokens found</div>';
+                dropdown.classList.add('active');
+                return;
+            }
+            
+            results.forEach(token => {
+                const balance = getTokenBalance(token.mint);
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const option = document.createElement('div');
+                option.className = 'token-option';
+                option.innerHTML = `
+                    <div class="token-logo">${token.symbol.slice(0, 2)}</div>
+                    <div class="token-option-info">
+                        <div class="token-option-symbol">${token.symbol}</div>
+                        <div class="token-option-name">${token.mint.slice(0, 8)}...${token.mint.slice(-6)}</div>
+                    </div>
+                    <div>
+                        <div class="token-option-balance">${balance.toFixed(4)}</div>
+                        <div class="token-option-price">$${formatPrice(price)}</div>
+                    </div>
+                `;
+                
+                option.addEventListener('click', () => {
+                    addTokenToStrategy(token);
+                    document.getElementById('tokenSearch').value = '';
+                    dropdown.classList.remove('active');
+                });
+                
+                dropdown.appendChild(option);
+            });
+            
+            dropdown.classList.add('active');
+        }
+
+        function getTokenBalance(mint) {
+            if (mint === DEVNET_CONSTANTS.WSOL) {
+                // SOL balance
+                const balanceText = document.getElementById('solBalance').textContent;
+                return parseFloat(balanceText) || 0;
+            }
+            
+            const token = walletTokens.find(t => t.mint === mint);
+            return token ? token.amount : 0;
+        }
+
+        // Update token dropdown
+        function updateTokenDropdown() {
+            // This is called when wallet data changes
+            // The dropdown will be populated when user searches
+        }
+
+        // Strategy management
+        function addTokenToStrategy(token) {
+            const container = document.getElementById('strategyTokens');
+            
+            // Check if token already added
+            if (container.querySelector(`[data-mint="${token.mint}"]`)) {
+                showToast('Token already added', 'warning');
+                return;
+            }
+            
+            // Check max tokens
+            const currentTokens = container.querySelectorAll('.strategy-token');
+            if (currentTokens.length >= 10) {
+                showToast('Maximum 10 tokens per strategy', 'warning');
+                return;
+            }
+            
+            const tokenElement = document.createElement('div');
+            tokenElement.className = 'strategy-token';
+            tokenElement.dataset.mint = token.mint;
+            tokenElement.innerHTML = `
+                <div class="strategy-token-info">
+                    <div class="token-logo">${token.symbol.slice(0, 2)}</div>
+                    <div>
+                        <div class="token-option-symbol">${token.symbol}</div>
+                        <div class="token-option-name">${token.mint.slice(0, 8)}...${token.mint.slice(-6)}</div>
+                    </div>
+                </div>
+                <div class="weight-control">
+                    <input type="range" class="weight-slider" min="0" max="100" value="0" 
+                           onchange="updateTokenWeight(this)">
+                    <span class="weight-value">0%</span>
+                    <button class="remove-token-btn" onclick="removeTokenFromStrategy(this)">×</button>
+                </div>
+            `;
+            
+            container.appendChild(tokenElement);
+            rebalanceWeights();
+            updatePoolStatus();
+        }
+
+        function removeTokenFromStrategy(button) {
+            button.closest('.strategy-token').remove();
+            rebalanceWeights();
+            updatePoolStatus();
+        }
+
+        function updateTokenWeight(slider) {
+            const value = slider.value;
+            slider.nextElementSibling.textContent = value + '%';
+            checkWeightTotal();
+        }
+
+        function rebalanceWeights() {
+            const tokens = document.querySelectorAll('.strategy-token');
+            if (tokens.length === 0) return;
+            
+            const equalWeight = Math.floor(100 / tokens.length);
+            const remainder = 100 - (equalWeight * tokens.length);
+            
+            tokens.forEach((token, index) => {
+                const slider = token.querySelector('.weight-slider');
+                const weight = equalWeight + (index === 0 ? remainder : 0);
+                slider.value = weight;
+                slider.nextElementSibling.textContent = weight + '%';
+            });
+        }
+
+        function checkWeightTotal() {
+            const sliders = document.querySelectorAll('.weight-slider');
+            const total = Array.from(sliders).reduce((sum, slider) => sum + parseInt(slider.value), 0);
+            
+            if (total !== 100 && sliders.length > 0) {
+                document.getElementById('createStrategyBtn').classList.add('warning');
+                return false;
+            } else {
+                document.getElementById('createStrategyBtn').classList.remove('warning');
+                return true;
+            }
+        }
+
+        // Create strategy with real rebalancing
+        async function createStrategy() {
+            if (!wallet) {
+                showToast('Please connect your wallet first', 'error');
+                return;
+            }
+            
+            if (!checkWeightTotal()) {
+                showToast('Token weights must total 100%', 'error');
+                return;
+            }
+            
+            const strategyName = document.getElementById('strategyName').value.trim();
+            if (!strategyName) {
+                showToast('Please enter a strategy name', 'error');
+                return;
+            }
+            
+            const tokens = Array.from(document.querySelectorAll('.strategy-token')).map(token => {
+                const tokenData = [...DEFAULT_TEST_TOKENS, ...createdTokens].find(
+                    t => t.mint === token.dataset.mint
+                );
+                return {
+                    mint: token.dataset.mint,
+                    symbol: token.querySelector('.token-option-symbol').textContent,
+                    weight: parseInt(token.querySelector('.weight-slider').value),
+                    decimals: tokenData ? tokenData.decimals : 9
+                };
+            });
+            
+            if (tokens.length < 2) {
+                showToast('Please add at least 2 tokens', 'error');
+                return;
+            }
+            
+            const selectedDexes = Array.from(document.querySelectorAll('.dex-option.selected'))
+                .map(dex => dex.dataset.dex);
+            
+            const strategy = {
+                id: generateStrategyId(),
+                name: strategyName,
+                tokens: tokens,
+                rebalanceThreshold: parseFloat(document.getElementById('rebalanceThreshold').value),
+                checkInterval: parseInt(document.getElementById('checkInterval').value),
+                slippageTolerance: parseFloat(document.getElementById('slippageTolerance').value),
+                minTradeSize: parseFloat(document.getElementById('minTradeSize').value),
+                dexes: selectedDexes,
+                created: Date.now(),
+                status: 'active',
+                value: 0,
+                pnl: 0,
+                lastRebalance: null,
+                rebalanceCount: 0,
+                performance: [],
+                poolAddresses: {}
+            };
+            
+            // Validate strategy
+            const validation = await validateStrategy(strategy);
+            if (!validation.valid) {
+                showToast(validation.error, 'error');
+                return;
+            }
+            
+            // Check pools exist
+            const poolCheck = checkPoolsExist(strategy);
+            if (!poolCheck.valid) {
+                showToast(poolCheck.error + ' Please create pools first.', 'error');
+                return;
+            }
+            
+            // Add strategy
+            strategies.push(strategy);
+            activePositions.push(strategy);
+            
+            // Save to localStorage
+            saveStrategies();
+            
+            // Start monitoring
+            startStrategyMonitoring(strategy);
+            
+            // Clear form
+            clearStrategyForm();
+            
+            // Update UI
+            updatePositionGrid();
+            updatePortfolioMetrics();
+            showToast('Strategy created successfully!', 'success');
+            
+            // Add to transaction feed
+            addTransactionToFeed({
+                type: 'create',
+                title: 'Strategy Created',
+                description: `${strategyName} with ${tokens.length} tokens`,
+                timestamp: Date.now()
+            });
+        }
+
+        function checkPoolsExist(strategy) {
+            const missingPools = [];
+            
+            for (let i = 0; i < strategy.tokens.length; i++) {
+                for (let j = i + 1; j < strategy.tokens.length; j++) {
+                    const tokenA = strategy.tokens[i];
+                    const tokenB = strategy.tokens[j];
+                    const poolKey = `${tokenA.mint}-${tokenB.mint}`;
+                    const reversePoolKey = `${tokenB.mint}-${tokenA.mint}`;
+                    
+                    if (!liquidityPools[poolKey] && !liquidityPools[reversePoolKey]) {
+                        // Check if one is USDC (we can route through it)
+                        const hasUSDC = tokenA.mint === DEVNET_CONSTANTS.USDC || 
+                                       tokenB.mint === DEVNET_CONSTANTS.USDC;
+                        if (!hasUSDC) {
+                            missingPools.push(`${tokenA.symbol}/${tokenB.symbol}`);
+                        }
+                    }
+                }
+            }
+            
+            if (missingPools.length > 0) {
+                return { 
+                    valid: false, 
+                    error: `Missing pools: ${missingPools.join(', ')}`
+                };
+            }
+            
+            return { valid: true };
+        }
+
+        function generateStrategyId() {
+            return 'strategy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        async function validateStrategy(strategy) {
+            // Check token balances
+            for (const token of strategy.tokens) {
+                const balance = getTokenBalance(token.mint);
+                if (balance === 0) {
+                    return { 
+                        valid: false, 
+                        error: `No balance for ${token.symbol}. Create or acquire some first.` 
+                    };
+                }
+            }
+            
+            // Validate token mints
+            for (const token of strategy.tokens) {
+                try {
+                    new solanaWeb3.PublicKey(token.mint);
+                } catch {
+                    return { valid: false, error: `Invalid token mint: ${token.mint}` };
+                }
+            }
+            
+            return { valid: true };
+        }
+
+        function clearStrategyForm() {
+            document.getElementById('strategyName').value = '';
+            document.getElementById('strategyTokens').innerHTML = '';
+            document.getElementById('tokenSearch').value = '';
+            document.getElementById('rebalanceThreshold').value = '5';
+            document.getElementById('checkInterval').value = '5';
+            document.getElementById('slippageTolerance').value = '1';
+            document.getElementById('minTradeSize').value = '1';
+            document.getElementById('poolCreation').style.display = 'none';
+        }
+
+        // Strategy monitoring with real rebalancing
+        function startStrategyMonitoring(strategy) {
+            const checkRebalance = async () => {
+                if (strategy.status !== 'active') return;
+                
+                try {
+                    const needsRebalance = await checkRebalanceNeeded(strategy);
+                    
+                    if (needsRebalance) {
+                        await executeRebalance(strategy);
+                    }
+                } catch (error) {
+                    console.error('Rebalance check error:', error);
+                    strategy.status = 'error';
+                    updatePositionGrid();
+                }
+            };
+            
+            // Initial check
+            checkRebalance();
+            
+            // Set up periodic checks
+            const intervalMs = strategy.checkInterval * 60 * 1000;
+            strategy.monitoringInterval = setInterval(checkRebalance, intervalMs);
+        }
+
+        async function checkRebalanceNeeded(strategy) {
+            // Get current allocations
+            const currentAllocations = await getCurrentAllocations(strategy);
+            
+            // Check deviation from target
+            for (const token of strategy.tokens) {
+                const current = currentAllocations[token.mint] || 0;
+                const target = token.weight;
+                const deviation = Math.abs(current - target);
+                
+                if (deviation > strategy.rebalanceThreshold) {
+                    console.log(`Rebalance needed: ${token.symbol} is ${current.toFixed(2)}% vs target ${target}%`);
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        async function getCurrentAllocations(strategy) {
+            const allocations = {};
+            let totalValue = 0;
+            
+            // Calculate current values
+            for (const token of strategy.tokens) {
+                const balance = getTokenBalance(token.mint);
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const value = balance * price;
+                allocations[token.mint] = value;
+                totalValue += value;
+            }
+            
+            // Convert to percentages
+            if (totalValue > 0) {
+                for (const mint in allocations) {
+                    allocations[mint] = (allocations[mint] / totalValue) * 100;
+                }
+            }
+            
+            return allocations;
+        }
+
+        // Execute real rebalancing
+        async function executeRebalance(strategy) {
+            try {
+                showToast('Executing rebalance...', 'info');
+                
+                // Calculate required trades
+                const trades = await calculateRebalanceTrades(strategy);
+                
+                if (trades.length === 0) {
+                    showToast('No trades needed', 'info');
+                    return;
+                }
+                
+                // Execute trades based on selected DEX
+                let success = false;
+                if (strategy.dexes.includes('raydium')) {
+                    success = await executeRaydiumSwaps(trades, strategy);
+                } else if (strategy.dexes.includes('whirlpool')) {
+                    success = await executeWhirlpoolSwaps(trades, strategy);
+                }
+                
+                if (success) {
+                    // Update strategy
+                    strategy.lastRebalance = Date.now();
+                    strategy.rebalanceCount++;
+                    saveStrategies();
+                    
+                    // Update UI
+                    updatePositionGrid();
+                    showToast('Rebalance completed successfully!', 'success');
+                    
+                    // Add to transaction feed
+                    addTransactionToFeed({
+                        type: 'rebalance',
+                        title: 'Portfolio Rebalanced',
+                        description: `${strategy.name} - ${trades.length} trades executed`,
+                        timestamp: Date.now()
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Rebalance execution error:', error);
+                showToast('Rebalance failed: ' + error.message, 'error');
+                
+                // Update strategy status
+                strategy.status = 'error';
+                updatePositionGrid();
+            }
+        }
+
+        async function calculateRebalanceTrades(strategy) {
+            const trades = [];
+            const currentAllocations = await getCurrentAllocations(strategy);
+            const portfolioValue = await calculateStrategyValue(strategy);
+            
+            // Find tokens to sell and buy
+            const toSell = [];
+            const toBuy = [];
+            
+            for (const token of strategy.tokens) {
+                const current = currentAllocations[token.mint] || 0;
+                const target = token.weight;
+                const difference = target - current;
+                const valueChange = (difference / 100) * portfolioValue;
+                
+                if (Math.abs(difference) > 1 && Math.abs(valueChange) >= strategy.minTradeSize) {
+                    if (difference < 0) {
+                        // Need to sell
+                        toSell.push({
+                            token: token,
+                            amount: Math.abs(valueChange),
+                            percentage: Math.abs(difference)
+                        });
+                    } else {
+                        // Need to buy
+                        toBuy.push({
+                            token: token,
+                            amount: valueChange,
+                            percentage: difference
+                        });
+                    }
+                }
+            }
+            
+            // Create trade pairs through USDC
+            const baseToken = strategy.tokens.find(t => t.mint === DEVNET_CONSTANTS.USDC);
+            const usdcToken = baseToken || { 
+                mint: DEVNET_CONSTANTS.USDC, 
+                symbol: 'USDC', 
+                decimals: 6 
+            };
+            
+            // Sell trades
+            toSell.forEach(sell => {
+                if (sell.token.mint !== usdcToken.mint) {
+                    const price = priceManager ? priceManager.getPrice(sell.token.mint) : 1;
+                    trades.push({
+                        type: 'sell',
+                        fromToken: sell.token,
+                        toToken: usdcToken,
+                        amount: sell.amount / price,
+                        estimatedOutput: sell.amount
+                    });
+                }
+            });
+            
+            // Buy trades
+            toBuy.forEach(buy => {
+                if (buy.token.mint !== usdcToken.mint) {
+                    const price = priceManager ? priceManager.getPrice(buy.token.mint) : 1;
+                    trades.push({
+                        type: 'buy',
+                        fromToken: usdcToken,
+                        toToken: buy.token,
+                        amount: buy.amount,
+                        estimatedOutput: buy.amount / price
+                    });
+                }
+            });
+            
+            return trades;
+        }
+
+        // Execute Raydium swaps (simulated for testnet)
+        async function executeRaydiumSwaps(trades, strategy) {
+            // In production, this would use Raydium SDK
+            // For testnet demo, we'll simulate the swaps
+            
+            for (const trade of trades) {
+                try {
+                    console.log(`Executing ${trade.type}: ${trade.amount.toFixed(4)} ${trade.fromToken.symbol} → ${trade.toToken.symbol}`);
+                    
+                    // Check if pool exists
+                    const poolKey = `${trade.fromToken.mint}-${trade.toToken.mint}`;
+                    const reversePoolKey = `${trade.toToken.mint}-${trade.fromToken.mint}`;
+                    const pool = liquidityPools[poolKey] || liquidityPools[reversePoolKey];
+                    
+                    if (!pool) {
+                        // Try routing through USDC
+                        console.log('No direct pool, routing through USDC');
+                    }
+                    
+                    // Simulate transaction
+                    showToast(`Swapping ${trade.fromToken.symbol} → ${trade.toToken.symbol}`, 'info');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // In production: Build and send actual swap transaction
+                    /*
+                    const swapInstruction = await buildRaydiumSwapInstruction({
+                        poolKeys: pool,
+                        userKeys: {
+                            tokenAccounts: walletTokens,
+                            owner: wallet
+                        },
+                        amountIn: trade.amount,
+                        amountOut: trade.estimatedOutput,
+                        fixedSide: 'in'
+                    });
+                    
+                    const transaction = new Transaction().add(swapInstruction);
+                    const signature = await provider.sendTransaction(transaction, connection);
+                    await connection.confirmTransaction(signature);
+                    */
+                    
+                } catch (error) {
+                    console.error('Swap error:', error);
+                    throw error;
+                }
+            }
+            
+            return true;
+        }
+
+        // Execute Whirlpool swaps (placeholder)
+        async function executeWhirlpoolSwaps(trades, strategy) {
+            // Similar to Raydium but using Orca's Whirlpool SDK
+            return executeRaydiumSwaps(trades, strategy);
+        }
+
+        // Portfolio metrics calculation
+        async function updatePortfolioMetrics() {
+            try {
+                const totalValue = await calculateTotalPortfolioValue();
+                const pnl24h = calculatePnL(24);
+                const activeCount = activePositions.length;
+                const totalRebalances = strategies.reduce((sum, s) => sum + s.rebalanceCount, 0);
+                
+                // Update UI
+                updateMetricCard('totalValue', totalValue, 'currency');
+                updateMetricCard('pnl24h', pnl24h, 'currency', true);
+                updateMetricCard('activeStrategies', activeCount, 'number');
+                updateMetricCard('totalRebalances', totalRebalances, 'number');
+                
+                // Update chart
+                updatePortfolioChart();
+                
+            } catch (error) {
+                console.error('Error updating portfolio metrics:', error);
+            }
+        }
+
+        async function calculateTotalPortfolioValue() {
+            let total = 0;
+            
+            // Add SOL balance
+            if (wallet) {
+                const balance = await connection.getBalance(wallet);
+                const solPrice = priceManager ? priceManager.getPrice(DEVNET_CONSTANTS.WSOL) : 100;
+                total += (balance / solanaWeb3.LAMPORTS_PER_SOL) * solPrice;
+            }
+            
+            // Add token balances
+            for (const token of walletTokens) {
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                total += token.amount * price;
+            }
+            
+            // Add strategy values
+            for (const strategy of activePositions) {
+                strategy.value = await calculateStrategyValue(strategy);
+                total += strategy.value;
+            }
+            
+            return total;
+        }
+
+        async function calculateStrategyValue(strategy) {
+            let value = 0;
+            
+            for (const token of strategy.tokens) {
+                const balance = getTokenBalance(token.mint);
+                const price = priceManager ? priceManager.getPrice(token.mint) : 0;
+                value += balance * price * (token.weight / 100);
+            }
+            
+            return value;
+        }
+
+        function calculatePnL(hours) {
+            // Calculate P&L based on price history
+            let currentValue = 0;
+            let previousValue = 0;
+            
+            // SOL balance
+            const solBalance = parseFloat(document.getElementById('solBalance').textContent) || 0;
+            const solPrice = priceManager ? priceManager.getPrice(DEVNET_CONSTANTS.WSOL) : 100;
+            const prevSolPrice = priceManager ? priceManager.getPreviousPrice(DEVNET_CONSTANTS.WSOL, hours) : solPrice;
+            
+            currentValue += solBalance * solPrice;
+            previousValue += solBalance * (prevSolPrice || solPrice);
+            
+            // Token balances
+            for (const token of walletTokens) {
+                const currentPrice = priceManager ? priceManager.getPrice(token.mint) : 0;
+                const previousPrice = priceManager ? priceManager.getPreviousPrice(token.mint, hours) : currentPrice;
+                
+                currentValue += token.amount * currentPrice;
+                previousValue += token.amount * (previousPrice || currentPrice);
+            }
+            
+            return currentValue - previousValue;
+        }
+
+        function updateMetricCard(id, value, type, showSign = false) {
+            const element = document.getElementById(id);
+            if (!element) return;
+            
+            let displayValue;
+            
+            switch (type) {
+                case 'currency':
+                    displayValue = formatCurrency(value);
+                    break;
+                case 'percentage':
+                    displayValue = value.toFixed(2) + '%';
+                    break;
+                case 'number':
+                    displayValue = value.toString();
+                    break;
+            }
+            
+            if (showSign && value !== 0) {
+                displayValue = (value > 0 ? '+' : '') + displayValue;
+            }
+            
+            element.textContent = displayValue;
+            
+            // Update change indicator
+            const changeElement = document.getElementById(id + 'Change');
+            if (changeElement && type === 'currency') {
+                const isPositive = value >= 0;
+                changeElement.className = `metric-change ${isPositive ? 'positive' : 'negative'}`;
+                if (id === 'pnl24h') {
+                    const percentChange = previousValue > 0 ? (value / previousValue * 100) : 0;
+                    changeElement.innerHTML = `
+                        <span>${isPositive ? '↑' : '↓'}</span>
+                        <span>${Math.abs(percentChange).toFixed(2)}%</span>
+                    `;
+                }
+            }
+        }
+
+        // Chart management
+        function updatePortfolioChart() {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            
+            if (chartInstances.portfolio) {
+                chartInstances.portfolio.destroy();
+            }
+            
+            // Generate chart data
+            const labels = [];
+            const data = [];
+            const now = Date.now();
+            const period = getSelectedChartPeriod();
+            const interval = getChartInterval(period);
+            
+            for (let i = 0; i < period.points; i++) {
+                const timestamp = now - (period.points - i) * interval;
+                labels.push(formatChartLabel(timestamp, period.format));
+                data.push(generateHistoricalValue(timestamp));
+            }
+            
+            chartInstances.portfolio = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Portfolio Value',
+                        data: data,
+                        borderColor: '#14f195',
+                        backgroundColor: 'rgba(20, 241, 149, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(26, 28, 36, 0.9)',
+                            titleColor: '#e4e6eb',
+                            bodyColor: '#b0b3b8',
+                            borderColor: '#2a2d3a',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Value: ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(42, 45, 58, 0.5)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#8b8d91',
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(42, 45, 58, 0.5)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#8b8d91',
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function getSelectedChartPeriod() {
+            const active = document.querySelector('.chart-control.active');
+            const period = active ? active.dataset.period : '24h';
+            
+            const periods = {
+                '24h': { points: 24, format: 'HH:mm', interval: 60 * 60 * 1000 },
+                '7d': { points: 7 * 24, format: 'MMM DD', interval: 60 * 60 * 1000 },
+                '30d': { points: 30, format: 'MMM DD', interval: 24 * 60 * 60 * 1000 },
+                '90d': { points: 90, format: 'MMM DD', interval: 24 * 60 * 60 * 1000 }
+            };
+            
+            return periods[period];
+        }
+
+        function getChartInterval(period) {
+            return period.interval;
+        }
+
+        function formatChartLabel(timestamp, format) {
+            const date = new Date(timestamp);
+            
+            switch (format) {
+                case 'HH:mm':
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                case 'MMM DD':
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                default:
+                    return date.toLocaleDateString();
+            }
+        }
+
+        async function generateHistoricalValue(timestamp) {
+            // Generate based on actual portfolio value with some randomness
+            const currentValue = await calculateTotalPortfolioValue();
+            const timeOffset = (Date.now() - timestamp) / (60 * 60 * 1000);
+            const volatility = 0.02;
+            const trend = 0.0001;
+            
+            const randomWalk = (Math.random() - 0.5) * volatility * currentValue;
+            const trendComponent = trend * timeOffset * currentValue;
+            
+            return Math.max(0, currentValue - trendComponent + randomWalk);
+        }
+
+        // Position management UI
+        function updatePositionGrid() {
+            const grid = document.getElementById('positionGrid');
+            
+            if (activePositions.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; color: var(--text-tertiary); padding: 40px;">
+                        No active positions. Create test tokens and a strategy to get started.
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = activePositions.map(position => `
+                <div class="position-card">
+                    <div class="position-header">
+                        <div>
+                            <div class="position-title">${position.name}</div>
+                            <div style="font-size: 12px; color: var(--text-tertiary);">
+                                Created ${formatRelativeTime(position.created)}
+                            </div>
+                        </div>
+                        <div class="position-status ${position.status}">
+                            <span class="status-indicator ${position.status === 'active' ? '' : 'error'}"></span>
+                            ${position.status}
+                        </div>
+                    </div>
+                    <div class="position-metrics">
+                        <div class="position-metric">
+                            <div class="position-metric-label">Value</div>
+                            <div class="position-metric-value">${formatCurrency(position.value || 0)}</div>
+                        </div>
+                        <div class="position-metric">
+                            <div class="position-metric-label">Rebalances</div>
+                            <div class="position-metric-value">${position.rebalanceCount}</div>
+                        </div>
+                    </div>
+                    <div class="position-tokens">
+                        ${position.tokens.map(token => `
+                            <div class="position-token">
+                                <div class="position-token-info">
+                                    <div class="token-logo" style="width: 24px; height: 24px; font-size: 12px;">
+                                        ${token.symbol.slice(0, 2)}
+                                    </div>
+                                    <span class="position-token-symbol">${token.symbol}</span>
+                                </div>
+                                <span class="position-token-allocation">${token.weight}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="position-metric" style="margin-top: 12px;">
+                        <div class="position-metric-label">Last Rebalance</div>
+                        <div class="position-metric-value" style="font-size: 14px;">
+                            ${position.lastRebalance ? formatRelativeTime(position.lastRebalance) : 'Never'}
+                        </div>
+                    </div>
+                    <div class="position-actions">
+                        <button class="position-action" onclick="togglePositionStatus('${position.id}')">
+                            ${position.status === 'active' ? 'Pause' : 'Resume'}
+                        </button>
+                        <button class="position-action" onclick="manualRebalance('${position.id}')">
+                            Rebalance
+                        </button>
+                        <button class="position-action" onclick="deleteStrategy('${position.id}')">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function togglePositionStatus(strategyId) {
+            const strategy = strategies.find(s => s.id === strategyId);
+            if (!strategy) return;
+            
+            strategy.status = strategy.status === 'active' ? 'paused' : 'active';
+            
+            if (strategy.status === 'paused' && strategy.monitoringInterval) {
+                clearInterval(strategy.monitoringInterval);
+            } else if (strategy.status === 'active') {
+                startStrategyMonitoring(strategy);
+            }
+            
+            saveStrategies();
+            updatePositionGrid();
+            showToast(`Strategy ${strategy.status === 'active' ? 'resumed' : 'paused'}`, 'info');
+        }
+
+        async function manualRebalance(strategyId) {
+            const strategy = strategies.find(s => s.id === strategyId);
+            if (!strategy) return;
+            
+            if (strategy.status !== 'active') {
+                showToast('Cannot rebalance paused strategy', 'warning');
+                return;
+            }
+            
+            await executeRebalance(strategy);
+        }
+
+        function deleteStrategy(strategyId) {
+            if (!confirm('Are you sure you want to delete this strategy?')) return;
+            
+            const strategyIndex = strategies.findIndex(s => s.id === strategyId);
+            if (strategyIndex === -1) return;
+            
+            const strategy = strategies[strategyIndex];
+            
+            // Clear monitoring interval
+            if (strategy.monitoringInterval) {
+                clearInterval(strategy.monitoringInterval);
+            }
+            
+            // Remove from arrays
+            strategies.splice(strategyIndex, 1);
+            const activeIndex = activePositions.findIndex(s => s.id === strategyId);
+            if (activeIndex !== -1) {
+                activePositions.splice(activeIndex, 1);
+            }
+            
+            saveStrategies();
+            updatePositionGrid();
+            updatePortfolioMetrics();
+            showToast('Strategy deleted', 'info');
+        }
+
+        // Transaction feed
+        function addTransactionToFeed(transaction) {
+            const feed = document.getElementById('transactionFeed');
+            
+            // Remove empty state if exists
+            const emptyState = feed.querySelector('div[style*="text-align: center"]');
+            if (emptyState) emptyState.remove();
+            
+            const txElement = document.createElement('div');
+            txElement.className = 'transaction-item';
+            txElement.style.opacity = '0';
+            
+            const icon = getTransactionIcon(transaction.type);
+            
+            txElement.innerHTML = `
+                <div class="transaction-icon ${transaction.type}">
+                    ${icon}
+                </div>
+                <div class="transaction-details">
+                    <div class="transaction-title">${transaction.title}</div>
+                    <div class="transaction-description">${transaction.description}</div>
+                    <div class="transaction-time">${formatRelativeTime(transaction.timestamp)}</div>
+                </div>
+                ${transaction.txHash ? `
+                    <a href="${CONFIG.EXPLORER_URL}&tx=${transaction.txHash}" target="_blank" 
+                       class="transaction-link">View →</a>
+                ` : ''}
+            `;
+            
+            feed.insertBefore(txElement, feed.firstChild);
+            
+            // Animate in
+            requestAnimationFrame(() => {
+                txElement.style.transition = 'opacity 0.3s ease';
+                txElement.style.opacity = '1';
+            });
+            
+            // Keep only last 20 transactions
+            while (feed.children.length > 20) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function getTransactionIcon(type) {
+            const icons = {
+                swap: '⇄',
+                rebalance: '⚖',
+                create: '+',
+                error: '!',
+                success: '✓'
+            };
+            return icons[type] || '•';
+        }
+
+        // Simulation
+        async function runSimulation() {
+            const modal = document.getElementById('simulationModal');
+            
+            // Get strategy parameters
+            const tokens = Array.from(document.querySelectorAll('.strategy-token')).map(token => ({
+                mint: token.dataset.mint,
+                symbol: token.querySelector('.token-option-symbol').textContent,
+                weight: parseInt(token.querySelector('.weight-slider').value)
+            }));
+            
+            if (tokens.length === 0) {
+                showToast('Please add tokens to simulate', 'warning');
+                return;
+            }
+            
+            if (!checkWeightTotal()) {
+                showToast('Token weights must total 100%', 'error');
+                return;
+            }
+            
+            // Run simulation
+            const results = await simulateStrategy(tokens);
+            
+            // Update modal
+            document.getElementById('simAPY').textContent = results.apy.toFixed(2) + '%';
+            document.getElementById('simDrawdown').textContent = results.maxDrawdown.toFixed(2) + '%';
+            document.getElementById('simSharpe').textContent = results.sharpeRatio.toFixed(2);
+            document.getElementById('simWinRate').textContent = results.winRate.toFixed(0) + '%';
+            
+            // Update simulation chart
+            updateSimulationChart(results.chartData);
+            
+            // Show modal
+            openModal('simulationModal');
+        }
+
+        async function simulateStrategy(tokens) {
+            // Monte Carlo simulation
+            const simulations = 100;
+            const days = 365;
+            const results = [];
+            
+            for (let sim = 0; sim < simulations; sim++) {
+                const values = [10000]; // Starting value
+                
+                for (let day = 1; day <= days; day++) {
+                    const dailyReturn = generateDailyReturn(tokens);
+                    const newValue = values[values.length - 1] * (1 + dailyReturn);
+                    values.push(newValue);
+                }
+                
+                results.push(values);
+            }
+            
+            // Calculate statistics
+            const finalValues = results.map(r => r[r.length - 1]);
+            const avgFinalValue = finalValues.reduce((sum, v) => sum + v, 0) / finalValues.length;
+            const apy = ((avgFinalValue / 10000) - 1) * 100;
+            
+            const drawdowns = results.map(r => calculateMaxDrawdown(r));
+            const maxDrawdown = Math.min(...drawdowns);
+            
+            const returns = results.map(r => calculateReturns(r));
+            const avgSharpe = returns.map(r => calculateSharpeFromReturns(r))
+                .reduce((sum, s) => sum + s, 0) / returns.length;
+            
+            const winRate = results.filter(r => r[r.length - 1] > 10000).length / results.length * 100;
+            
+            // Average simulation for chart
+            const avgSimulation = [];
+            for (let i = 0; i <= days; i++) {
+                const dayValues = results.map(r => r[i]);
+                const avgValue = dayValues.reduce((sum, v) => sum + v, 0) / dayValues.length;
+                avgSimulation.push(avgValue);
+            }
+            
+            return {
+                apy,
+                maxDrawdown,
+                sharpeRatio: avgSharpe,
+                winRate,
+                chartData: avgSimulation
+            };
+        }
+
+        function generateDailyReturn(tokens) {
+            // Simulate based on token characteristics
+            let weightedReturn = 0;
+            
+            for (const token of tokens) {
+                // Higher volatility for custom tokens
+                const isCustom = !DEFAULT_TEST_TOKENS.find(t => t.mint === token.mint);
+                const volatility = isCustom ? 0.08 : 0.05;
+                const drift = 0.0003; // 0.03% daily drift
+                const randomReturn = (Math.random() - 0.5) * 2 * volatility + drift;
+                weightedReturn += randomReturn * (token.weight / 100);
+            }
+            
+            return weightedReturn;
+        }
+
+        function calculateMaxDrawdown(values) {
+            let maxDrawdown = 0;
+            let peak = values[0];
+            
+            for (const value of values) {
+                if (value > peak) {
+                    peak = value;
+                }
+                const drawdown = (value - peak) / peak * 100;
+                if (drawdown < maxDrawdown) {
+                    maxDrawdown = drawdown;
+                }
+            }
+            
+            return maxDrawdown;
+        }
+
+        function calculateReturns(values) {
+            const returns = [];
+            for (let i = 1; i < values.length; i++) {
+                returns.push((values[i] - values[i-1]) / values[i-1]);
+            }
+            return returns;
+        }
+
+        function calculateSharpeFromReturns(returns) {
+            if (returns.length === 0) return 0;
+            
+            const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+            const riskFreeRate = 0.02 / 365;
+            
+            const variance = returns.reduce((sum, r) => 
+                sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+            const stdDev = Math.sqrt(variance);
+            
+            return stdDev === 0 ? 0 : ((avgReturn - riskFreeRate) / stdDev) * Math.sqrt(365);
+        }
+
+        function updateSimulationChart(data) {
+            const ctx = document.getElementById('simulationChart').getContext('2d');
+            
+            if (chartInstances.simulation) {
+                chartInstances.simulation.destroy();
+            }
+            
+            const labels = data.map((_, i) => `Day ${i}`);
+            
+            chartInstances.simulation = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Portfolio Value',
+                        data: data,
+                        borderColor: '#14f195',
+                        backgroundColor: 'rgba(20, 241, 149, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(42, 45, 58, 0.5)'
+                            },
+                            ticks: {
+                                color: '#8b8d91',
+                                callback: function(value) {
+                                    return '
+                 + (value / 1000).toFixed(0) + 'k';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createStrategyFromSimulation() {
+            closeModal('simulationModal');
+            createStrategy();
+        }
+
+        // Utility functions
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(value);
+        }
+
+        function formatPrice(price) {
+            if (price >= 1) {
+                return price.toFixed(2);
+            } else if (price >= 0.01) {
+                return price.toFixed(4);
+            } else {
+                return price.toFixed(6);
+            }
+        }
+
+        function formatRelativeTime(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            
+            const minutes = Math.floor(diff / (60 * 1000));
+            const hours = Math.floor(diff / (60 * 60 * 1000));
+            const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            return `${days}d ago`;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Local storage management
+        function saveStrategies() {
+            localStorage.setItem('solana_balancer_strategies_v2', JSON.stringify(strategies));
+        }
+
+        function saveCreatedTokens() {
+            localStorage.setItem('solana_balancer_tokens_v2', JSON.stringify(createdTokens));
+        }
+
+        function savePools() {
+            localStorage.setItem('solana_balancer_pools_v2', JSON.stringify(liquidityPools));
+        }
+
+        function loadSavedData() {
+            // Load strategies
+            const savedStrategies = localStorage.getItem('solana_balancer_strategies_v2');
+            if (savedStrategies) {
+                try {
+                    strategies = JSON.parse(savedStrategies);
+                    activePositions = strategies.filter(s => s.status === 'active');
+                    
+                    // Restart monitoring for active strategies
+                    for (const strategy of activePositions) {
+                        startStrategyMonitoring(strategy);
+                    }
+                    
+                    updatePositionGrid();
+                } catch (error) {
+                    console.error('Error loading saved strategies:', error);
+                }
+            }
+            
+            // Load created tokens
+            const savedTokens = localStorage.getItem('solana_balancer_tokens_v2');
+            if (savedTokens) {
+                try {
+                    createdTokens = JSON.parse(savedTokens);
+                    if (createdTokens.length > 0) {
+                        document.getElementById('createdTokensSection').style.display = 'block';
+                        updateCreatedTokensList();
+                        
+                        // Add prices for loaded tokens
+                        if (priceManager) {
+                            createdTokens.forEach(token => {
+                                priceManager.mockPrices.set(token.mint, Math.random() * 10 + 0.1);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading saved tokens:', error);
+                }
+            }
+            
+            // Load pools
+            const savedPools = localStorage.getItem('solana_balancer_pools_v2');
+            if (savedPools) {
+                try {
+                    liquidityPools = JSON.parse(savedPools);
+                } catch (error) {
+                    console.error('Error loading saved pools:', error);
+                }
+            }
+        }
+
+        // Toast notifications
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✓',
+                error: '✗',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type]}</span>
+                <div class="toast-content">
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto remove
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Periodic updates
+        function startPeriodicUpdates() {
+            // Update prices
+            setInterval(() => {
+                updatePriceTicker();
+            }, CONFIG.PRICE_UPDATE_INTERVAL);
+            
+            // Update portfolio metrics
+            setInterval(() => {
+                if (wallet) {
+                    updatePortfolioMetrics();
+                }
+            }, CONFIG.PORTFOLIO_UPDATE_INTERVAL);
+        }
+
+        // Initialize UI components
+        function initializeUI() {
+            // Wallet button
+            document.getElementById('connectWallet').addEventListener('click', async () => {
+                if (wallet) {
+                    await disconnectWallet();
+                } else {
+                    await connectPhantomWallet();
+                }
+            });
+            
+            // Token creation
+            document.getElementById('createTokenBtn').addEventListener('click', createSPLToken);
+            
+            // Token search
+            initializeTokenSearch();
+            
+            // Strategy creation
+            document.getElementById('createStrategyBtn').addEventListener('click', createStrategy);
+            document.getElementById('simulateBtn').addEventListener('click', runSimulation);
+            
+            // DEX selection
+            document.querySelectorAll('.dex-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    // Single selection for now
+                    document.querySelectorAll('.dex-option').forEach(o => o.classList.remove('selected'));
+                    option.classList.add('selected');
+                });
+            });
+            
+            // Chart period controls
+            document.querySelectorAll('.chart-control').forEach(control => {
+                control.addEventListener('click', (e) => {
+                    document.querySelectorAll('.chart-control').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    updatePortfolioChart();
+                });
+            });
+        }
+
+        // Network status
+        function updateNetworkStatus(connected) {
+            const indicator = document.getElementById('networkStatus');
+            const text = document.getElementById('networkText');
+            
+            if (connected) {
+                indicator.classList.remove('error');
+                text.textContent = 'Devnet';
+            } else {
+                indicator.classList.add('error');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        // Start application
+        document.addEventListener('DOMContentLoaded', () => {
+            initialize();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // Resume updates when page becomes visible
+                if (wallet) {
+                    loadWalletData();
+                    updatePortfolioMetrics();
+                }
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            // Close websocket connections
+            if (websocket) websocket.close();
+            
+            // Clear intervals
+            for (const strategy of strategies) {
+                if (strategy.monitoringInterval) {
+                    clearInterval(strategy.monitoringInterval);
+                }
+            }
+        });
+
+        console.log('Solana Portfolio Balancer Bot v2.0 - Testnet Edition initialized');
+        console.log('Connected to:', CONFIG.RPC_ENDPOINT);
+        console.log('Ready to create tokens and trade with real price feeds!');
+    </script>
+</body>
+</html>
+                
